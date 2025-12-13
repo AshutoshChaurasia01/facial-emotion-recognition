@@ -10,21 +10,19 @@ let lastBox = null;
 let lastEmotion = "--";
 let lastConfidence = 0;
 
-// Start webcam
+
 navigator.mediaDevices.getUserMedia({ video: true })
 .then(stream => {
     video.srcObject = stream;
 })
 .catch(err => alert("Camera error: " + err));
 
-/* -----------------------------
-   FAST LOOP: Draw video (~30 FPS)
---------------------------------*/
+
 function drawVideo() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Draw last known box
+    
     if (lastBox) {
     const x = lastBox[0] * canvas.width;
     const y = lastBox[1] * canvas.height;
@@ -41,12 +39,10 @@ function drawVideo() {
 }
 requestAnimationFrame(drawVideo);
 
-/* -----------------------------
-   SLOW LOOP: ML prediction (every 2.5s)
---------------------------------*/
+
 setInterval(() => {
     const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = 320;   // 👈 smaller image = faster
+    tempCanvas.width = 320;   
     tempCanvas.height = 240;
     const tctx = tempCanvas.getContext("2d");
     tctx.drawImage(video, 0, 0, 320, 240);
@@ -69,4 +65,5 @@ setInterval(() => {
     })
     .catch(err => console.error(err));
 
-}, 2500); // 👈 slower ML loop
+}, 2500); 
+
