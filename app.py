@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, jsonify
 import numpy as np
 import cv2
-import tensorflow as tf
 import base64
 import logging
+from ai_edge_litert.interpreter import Interpreter
 
 # -----------------------------------------------------------------------------
 # App + logging setup
@@ -13,28 +13,43 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("emotion-app")
 
 # -----------------------------------------------------------------------------
-# Load Keras model ONCE at module level.
-# With `gunicorn --preload` this happens a single time and is shared via
-# copy-on-write with all workers, drastically cutting memory.
+# Emotion labels
 # -----------------------------------------------------------------------------
 labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
+# -----------------------------------------------------------------------------
+# Load TFLite model ONCE at module level.
+#
+# WHY TFLite instead of the original Keras .h5?
+#   * The .h5 model was saved with Keras 3.12.0. TF <= 2.15 ships Keras 2 and
+#     CANNOT load it — that was crashing the gunicorn master during --preload.
+#   * TensorFlow itself imports ~400-500 MB of RAM. On Render's 512 MB free
+#     tier this leaves almost nothing for inference -> OOM-kill -> 502.
+#   * tflite-runtime is a ~5 MB package with a tiny memory footprint.
+#     The .tflite model is 360 KB (vs 4.1 MB .h5) and inference needs < 20 MB.
+#
+# The .tflite file is produced from the original .h5 by:
+#   converter = tf.lite.TFLiteConverter.from_keras_model(model)
+#   converter.optimizations = [tf.lite.Optimize.DEFAULT]
+#   open("emotion_model.tflite", "wb").write(converter.convert())
+# -----------------------------------------------------------------------------
 try:
-    model = tf.keras.models.load_model("emotion_model.h5")
-    # Build the inference function once so TF graph is fixed & warm.
-    log.info("Keras model loaded successfully.")
+    interpreter = Interpreter(model_path="emotion_model.tflite")
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    log.info("TFLite model loaded. Input: %s, Output: %s",
+             input_details[0]['shape'], output_details[0]['shape'])
 except Exception as e:
-    log.error("Failed to load model: %s", e)
-    model = None
+    log.error("Failed to load TFLite model: %s", e)
+    interpreter = None
+    input_details = output_details = None
 
 # -----------------------------------------------------------------------------
 # Face detector: OpenCV Haar cascade.
-# Replaces MTCNN which was the #1 cause of the 502 crashes:
-#   * MTCNN runs 3 CNN stages -> ~2-10s per frame on a 0.1 vCPU free tier
-#   * MTCNN allocates large TF graphs per call -> OOM on 512MB Render free tier
-# Haar cascade is a classic Viola-Jones detector shipped with OpenCV:
-#   * ~5-20ms per frame on the same hardware
-#   * negligible extra memory
+# Replaces MTCNN which was too heavy for Render's free tier (3 CNN stages,
+# 2-10s per frame, large TF graphs per call -> OOM).
+# Haar is ~5-20ms per frame and uses negligible extra memory.
 # -----------------------------------------------------------------------------
 _haar_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(_haar_path)
@@ -52,7 +67,7 @@ def index():
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
-        if model is None:
+        if interpreter is None:
             return jsonify({"emotion": "Model Not Loaded", "confidence": 0}), 500
 
         data = request.json.get("image")
@@ -70,7 +85,6 @@ def predict():
 
         # --- Face detection (Haar) ---
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # Downscale for speed; Haar is fast even at full res, but 320 wide is plenty.
         scale = 320.0 / original_w if original_w > 320 else 1.0
         small_gray = cv2.resize(gray, (int(original_w * scale), int(original_h * scale))) if scale != 1.0 else gray
 
@@ -88,7 +102,6 @@ def predict():
 
         # Take the largest face (most likely the subject)
         x, y, w, h = max(faces, key=lambda b: b[2] * b[3])
-        # Map back to original coordinates if we downscaled
         if scale != 1.0:
             x = int(x / scale)
             y = int(y / scale)
@@ -110,10 +123,14 @@ def predict():
         face = face / 255.0
         face = face.reshape(1, 48, 48, 1).astype(np.float32)
 
-        preds = model.predict(face, verbose=0)
-        emotion_index = int(np.argmax(preds))
+        # --- TFLite inference ---
+        interpreter.set_tensor(input_details[0]['index'], face)
+        interpreter.invoke()
+        preds = interpreter.get_tensor(output_details[0]['index'])
+
+        emotion_index = int(np.argmax(preds[0]))
         emotion = labels[emotion_index]
-        confidence = float(np.max(preds)) * 100
+        confidence = float(np.max(preds[0])) * 100
         log.info("Predicted: %s (%.2f%%)", emotion, confidence)
 
         return jsonify({
