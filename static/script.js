@@ -10,59 +10,92 @@ let lastBox = null;
 let lastEmotion = "--";
 let lastConfidence = 0;
 
+// --- FIX: guard against request pile-up. ---
+// The original code fired a fetch every 2500ms no matter what. When the
+// server was slow (30s/request on Render free tier), 12 concurrent requests
+// stacked up, each spawning MTCNN + TF inference -> instant OOM -> 502.
+// We now wait for the previous request to finish before sending the next,
+// and poll on a recursive setTimeout instead of setInterval.
+let busy = false;
+const POLL_INTERVAL = 1200; // ms between completed requests
 
-navigator.mediaDevices.getUserMedia({ video: true })
-.then(stream => {
-    video.srcObject = stream;
-})
-.catch(err => alert("Camera error: " + err));
+// --- Camera ---
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+    .then(stream => {
+        video.srcObject = stream;
+        return video.play();
+    })
+    .catch(err => {
+        console.error("Camera error:", err);
+        result.innerText = "Camera error: " + err.message;
+    });
 
-
+// --- Draw loop: paint video + bounding box every animation frame ---
 function drawVideo() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    
     if (lastBox) {
-    const x = lastBox[0] * canvas.width;
-    const y = lastBox[1] * canvas.height;
-    const w = lastBox[2] * canvas.width;
-    const h = lastBox[3] * canvas.height;
-
-    ctx.strokeStyle = "lime";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(x, y, w, h);
-}
-
-
+        const x = lastBox[0] * canvas.width;
+        const y = lastBox[1] * canvas.height;
+        const w = lastBox[2] * canvas.width;
+        const h = lastBox[3] * canvas.height;
+        ctx.strokeStyle = "lime";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, w, h);
+    }
     requestAnimationFrame(drawVideo);
 }
 requestAnimationFrame(drawVideo);
 
+// --- Prediction loop: send a frame, wait for response, then schedule next ---
+function sendFrame() {
+    if (busy) return;                 // never overlap requests
+    if (video.readyState < 2) {       // not enough data yet
+        scheduleNext();
+        return;
+    }
+    busy = true;
 
-setInterval(() => {
     const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = 320;   
+    tempCanvas.width = 320;
     tempCanvas.height = 240;
     const tctx = tempCanvas.getContext("2d");
     tctx.drawImage(video, 0, 0, 320, 240);
-
     const imageData = tempCanvas.toDataURL("image/jpeg", 0.7);
+
+    // Show a subtle "processing..." hint so the user knows it's alive
+    result.innerText = `Emotion: ${lastEmotion} (${lastConfidence}%)  ...`;
 
     fetch("/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: imageData })
     })
-    .then(res => res.json())
-    .then(data => {
-        lastEmotion = data.emotion;
-        lastConfidence = data.confidence;
-        lastBox = data.box;
-
-        result.innerText =
-          `Emotion: ${lastEmotion} (${lastConfidence}%)`;
+    .then(res => {
+        if (!res.ok) throw new Error("Server returned " + res.status);
+        return res.json();
     })
-    .catch(err => console.error(err));
+    .then(data => {
+        lastEmotion = data.emotion || "--";
+        lastConfidence = data.confidence || 0;
+        lastBox = data.box || null;
+        result.innerText = `Emotion: ${lastEmotion} (${lastConfidence}%)`;
+    })
+    .catch(err => {
+        console.error("Predict failed:", err);
+        result.innerText = `Emotion: ${lastEmotion} (retrying...)`;
+    })
+    .finally(() => {
+        busy = false;
+        scheduleNext();
+    });
+}
 
-}, 2500); 
+function scheduleNext() {
+    setTimeout(sendFrame, POLL_INTERVAL);
+}
+
+// Kick off the loop once the video is actually playing.
+video.addEventListener("playing", scheduleNext, { once: true });
+// Fallback in case the event already fired.
+setTimeout(scheduleNext, 2000);
