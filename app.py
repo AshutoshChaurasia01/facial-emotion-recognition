@@ -31,10 +31,10 @@ labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 # The .tflite file is produced from the original .h5 by:
 #   converter = tf.lite.TFLiteConverter.from_keras_model(model)
 #   converter.optimizations = [tf.lite.Optimize.DEFAULT]
-#   open("emotion_model.tflite", "wb").write(converter.convert())
+#   open("emotion_detection_model.tflite", "wb").write(converter.convert())
 # -----------------------------------------------------------------------------
 try:
-    interpreter = Interpreter(model_path="emotion_model.tflite")
+    interpreter = Interpreter(model_path="emotion_detection_model.tflite")
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
