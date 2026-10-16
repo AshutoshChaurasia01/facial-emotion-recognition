@@ -1,22 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Live Emotion Recognition</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-time webcam facial emotion recognition powered by TFLite + OpenCV.">
+    <meta name="theme-color" content="#0f172a">
+    <title>Live Face Emotion Recognition</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="header">
 
-        <h1>Live Face Emotion Recognition</h1>
+    <!-- Ambient background blobs (decorative) -->
+    <div class="bg-ambient" aria-hidden="true">
+        <span class="blob blob-1"></span>
+        <span class="blob blob-2"></span>
+        <span class="blob blob-3"></span>
+        <span class="grid-overlay"></span>
     </div>
 
-   
-    <video id="video" autoplay playsinline style="display:none;"></video>
+    <main class="container">
 
-  
-    <canvas id="canvas"></canvas>
+        <!-- ============================ HERO HEADER ============================ -->
+        <header class="hero">
+            <div class="hero-badge">
+                <span class="hero-badge-dot"></span>
+                AI-Powered &middot; Real-time Inference
+            </div>
+            <h1 class="hero-title">Live Face Emotion Recognition</h1>
+            <p class="hero-subtitle">
+                Your webcam stream is analyzed every ~1.2 seconds with a lightweight
+                TFLite CNN &mdash; drawing a live bounding box around your face and
+                reporting the detected emotion with its confidence score.
+            </p>
+        </header>
 
-    <h2 id="result">Emotion: --</h2>
+        <!-- ============================ STAGE ============================ -->
+        <div class="stage">
+
+            <!-- ---------- Canvas card ---------- -->
+            <section class="canvas-card" aria-label="Live webcam feed">
+                <div class="canvas-frame">
+
+                    <!-- Hidden source video: the canvas paints from this -->
+                    <video id="video" autoplay playsinline></video>
+
+                    <!-- Loading placeholder (sits BEHIND the transparent canvas;
+                         automatically covered once the video starts painting) -->
+                    <div class="cam-loading" aria-hidden="true">
+                        <div class="cam-spinner"></div>
+                        <span class="cam-loading-text">Starting camera&hellip;</span>
+                        <span class="cam-loading-hint">Please allow webcam access</span>
+                    </div>
+
+                    <!-- The live canvas (JS sets width=640 height=480) -->
+                    <canvas id="canvas"></canvas>
+
+                    <!-- HUD: LIVE indicator -->
+                    <div class="live-badge">
+                        <span class="live-dot"></span>
+                        <span>LIVE</span>
+                    </div>
+
+                    <!-- HUD: resolution tag -->
+                    <div class="res-badge">640 &times; 480</div>
+
+                    <!-- Viewfinder corner brackets -->
+                    <span class="corner corner-tl"></span>
+                    <span class="corner corner-tr"></span>
+                    <span class="corner corner-bl"></span>
+                    <span class="corner corner-br"></span>
+                </div>
+            </section>
+
+            <!-- ---------- Side panel ---------- -->
+            <aside class="side-panel">
+
+                <!-- Result readout -->
+                <div class="result-card">
+                    <div class="result-head">
+                        <span class="result-label">Current Emotion</span>
+                        <span class="result-status">
+                            <span class="result-status-dot"></span>Streaming
+                        </span>
+                    </div>
+                    <h2 id="result">Emotion: --</h2>
+                    <div class="result-foot">
+                        Updated automatically &middot; ~1.2s polling
+                    </div>
+                </div>
+
+                <!-- Emotion legend -->
+                <div class="legend-card">
+                    <div class="legend-title">
+                        <span class="legend-title-text">Detectable Emotions</span>
+                        <span class="legend-count">7 classes</span>
+                    </div>
+                    <div class="emotion-chips">
+                        <span class="chip"><span class="chip-emoji">&#128544;</span><span class="chip-name">Angry</span></span>
+                        <span class="chip"><span class="chip-emoji">&#128551;</span><span class="chip-name">Disgust</span></span>
+                        <span class="chip"><span class="chip-emoji">&#128552;</span><span class="chip-name">Fear</span></span>
+                        <span class="chip"><span class="chip-emoji">&#128516;</span><span class="chip-name">Happy</span></span>
+                        <span class="chip"><span class="chip-emoji">&#128528;</span><span class="chip-name">Neutral</span></span>
+                        <span class="chip"><span class="chip-emoji">&#128546;</span><span class="chip-name">Sad</span></span>
+                        <span class="chip"><span class="chip-emoji">&#128558;</span><span class="chip-name">Surprise</span></span>
+                    </div>
+                </div>
+
+                <!-- Model info -->
+                <div class="info-card">
+                    <div class="info-row">
+                        <span class="info-key">Model</span>
+                        <span class="info-val">TFLite CNN &middot; 48&times;48 grayscale</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-key">Detector</span>
+                        <span class="info-val">OpenCV Haar Cascade</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-key">Pipeline</span>
+                        <span class="info-val">Non-overlapping &middot; ~1.2s</span>
+                    </div>
+                </div>
+
+            </aside>
+        </div>
+
+        <!-- ============================ FOOTER ============================ -->
+        <footer class="footer">
+            <span class="footer-dot"></span>
+            Powered by <strong>TFLite</strong> + <strong>OpenCV</strong> &middot; Running on <strong>Render</strong>
+        </footer>
+
+    </main>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
