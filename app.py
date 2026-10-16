@@ -5,34 +5,13 @@ import base64
 import logging
 from ai_edge_litert.interpreter import Interpreter
 
-# -----------------------------------------------------------------------------
-# App + logging setup
-# -----------------------------------------------------------------------------
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("emotion-app")
 
-# -----------------------------------------------------------------------------
-# Emotion labels
-# -----------------------------------------------------------------------------
+
 labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
-# -----------------------------------------------------------------------------
-# Load TFLite model ONCE at module level.
-#
-# WHY TFLite instead of the original Keras .h5?
-#   * The .h5 model was saved with Keras 3.12.0. TF <= 2.15 ships Keras 2 and
-#     CANNOT load it — that was crashing the gunicorn master during --preload.
-#   * TensorFlow itself imports ~400-500 MB of RAM. On Render's 512 MB free
-#     tier this leaves almost nothing for inference -> OOM-kill -> 502.
-#   * tflite-runtime is a ~5 MB package with a tiny memory footprint.
-#     The .tflite model is 360 KB (vs 4.1 MB .h5) and inference needs < 20 MB.
-#
-# The .tflite file is produced from the original .h5 by:
-#   converter = tf.lite.TFLiteConverter.from_keras_model(model)
-#   converter.optimizations = [tf.lite.Optimize.DEFAULT]
-#   open("emotion_detection_model.tflite", "wb").write(converter.convert())
-# -----------------------------------------------------------------------------
 try:
     interpreter = Interpreter(model_path="emotion_detection_model.tflite")
     interpreter.allocate_tensors()
@@ -45,12 +24,6 @@ except Exception as e:
     interpreter = None
     input_details = output_details = None
 
-# -----------------------------------------------------------------------------
-# Face detector: OpenCV Haar cascade.
-# Replaces MTCNN which was too heavy for Render's free tier (3 CNN stages,
-# 2-10s per frame, large TF graphs per call -> OOM).
-# Haar is ~5-20ms per frame and uses negligible extra memory.
-# -----------------------------------------------------------------------------
 _haar_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(_haar_path)
 if face_cascade.empty():
@@ -74,7 +47,6 @@ def predict():
         if not data:
             return jsonify({"emotion": "No Image", "confidence": 0})
 
-        # Decode base64 data URL -> OpenCV BGR frame
         img_bytes = base64.b64decode(data.split(",")[1])
         img_np = np.frombuffer(img_bytes, np.uint8)
         frame = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
@@ -83,7 +55,6 @@ def predict():
 
         original_h, original_w = frame.shape[:2]
 
-        # --- Face detection (Haar) ---
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         scale = 320.0 / original_w if original_w > 320 else 1.0
         small_gray = cv2.resize(gray, (int(original_w * scale), int(original_h * scale))) if scale != 1.0 else gray
@@ -100,7 +71,6 @@ def predict():
         if len(faces) == 0:
             return jsonify({"emotion": "No Face", "confidence": 0})
 
-        # Take the largest face (most likely the subject)
         x, y, w, h = max(faces, key=lambda b: b[2] * b[3])
         if scale != 1.0:
             x = int(x / scale)
@@ -108,7 +78,6 @@ def predict():
             w = int(w / scale)
             h = int(h / scale)
 
-        # Clamp to frame bounds
         x = max(0, x)
         y = max(0, y)
         w = min(w, original_w - x)
@@ -118,12 +87,12 @@ def predict():
         if face.size == 0:
             return jsonify({"emotion": "No Face", "confidence": 0})
 
-        # --- Preprocess for the model: 48x48 grayscale, normalized ---
+
         face = cv2.resize(face, (48, 48))
         face = face / 255.0
         face = face.reshape(1, 48, 48, 1).astype(np.float32)
 
-        # --- TFLite inference ---
+    
         interpreter.set_tensor(input_details[0]['index'], face)
         interpreter.invoke()
         preds = interpreter.get_tensor(output_details[0]['index'])
