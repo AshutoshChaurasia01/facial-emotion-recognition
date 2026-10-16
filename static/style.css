@@ -1,31 +1,709 @@
+/* =====================================================================
+   Live Face Emotion Recognition — UI Stylesheet
+   Dark, modern, "AI/tech" aesthetic. Pure CSS, system fonts only.
+   ===================================================================== */
 
-*{
-    margin:0;
-    padding:0;
-    font-family: 'poppins',sans-serif;
-    box-sizing: border-box;
-    scroll-behavior: smooth;
+/* ---------------------------------------------------------------------
+   1. Design tokens
+   --------------------------------------------------------------------- */
+:root {
+    /* Surfaces */
+    --bg:            #0f172a;   /* slate-900 */
+    --bg-deep:       #0b1220;
+    --card:          rgba(30, 41, 59, 0.72);   /* slate-800, slight transparency */
+    --card-solid:    #1e293b;
+    --card-elev:     rgba(30, 41, 59, 0.92);
+
+    /* Lines */
+    --border:        #334155;   /* slate-700 */
+    --border-soft:   rgba(148, 163, 184, 0.14);
+
+    /* Accents */
+    --accent:        #6366f1;   /* indigo-500 */
+    --accent-2:      #8b5cf6;   /* violet-500 */
+    --accent-3:      #a78bfa;   /* violet-400 */
+    --accent-soft:   rgba(99, 102, 241, 0.16);
+
+    /* Text */
+    --text:          #f1f5f9;   /* slate-100 */
+    --text-muted:    #94a3b8;   /* slate-400 */
+    --text-dim:      #64748b;   /* slate-500 */
+
+    /* Status */
+    --live:          #ef4444;   /* red-500 */
+    --live-glow:     rgba(239, 68, 68, 0.55);
+    --ok:            #10b981;
+
+    /* Typography */
+    --font: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
+            'Helvetica Neue', Arial, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code',
+            Consolas, 'Liberation Mono', Menlo, monospace;
+
+    /* Shape & motion */
+    --radius:        18px;
+    --radius-sm:     12px;
+    --shadow:        0 18px 50px -20px rgba(2, 6, 23, 0.85);
+    --shadow-glow:   0 0 40px -8px rgba(99, 102, 241, 0.45);
+    --ease:          cubic-bezier(0.22, 1, 0.36, 1);
 }
-*::selection{
-    background-color: #00acf0ac;
-    color: black;
+
+
+/* ---------------------------------------------------------------------
+   2. Reset & base
+   --------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+* { margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: var(--font);
+    color: var(--text);
+    background-color: var(--bg);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    position: relative;
 }
-body{
-    background-color: #edede9;
-}
-h1{
-    text-align: center;
-    font-size: 35px;
-    
-}
-.header{
-    top: 0;
-    left: 0;
-    width: 100%;
-    background-color: #edede9;
-    display:flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
+
+::selection { background: rgba(139, 92, 246, 0.35); color: #fff; }
+
+
+/* ---------------------------------------------------------------------
+   3. Ambient background (animated blobs + faint grid)
+   --------------------------------------------------------------------- */
+.bg-ambient {
     position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(1200px 700px at 50% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
+        radial-gradient(900px 600px at 100% 100%, rgba(139, 92, 246, 0.12), transparent 60%),
+        var(--bg);
+}
+
+.blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.55;
+    animation: float 16s ease-in-out infinite;
+}
+.blob-1 {
+    width: 480px; height: 480px;
+    top: -120px; left: -80px;
+    background: radial-gradient(circle, #4f46e5, transparent 70%);
+}
+.blob-2 {
+    width: 420px; height: 420px;
+    bottom: -140px; right: -60px;
+    background: radial-gradient(circle, #8b5cf6, transparent 70%);
+    animation-delay: -5s;
+}
+.blob-3 {
+    width: 360px; height: 360px;
+    top: 40%; left: 55%;
+    background: radial-gradient(circle, #2563eb, transparent 70%);
+    opacity: 0.35;
+    animation-delay: -9s;
+}
+
+.grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 75%);
+    -webkit-mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 75%);
+}
+
+
+/* ---------------------------------------------------------------------
+   4. Container
+   --------------------------------------------------------------------- */
+.container {
+    width: min(1180px, 100% - 2.5rem);
+    margin-inline: auto;
+    padding-block: clamp(2rem, 5vw, 3.5rem) 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+
+/* ---------------------------------------------------------------------
+   5. Hero header
+   --------------------------------------------------------------------- */
+.hero {
+    text-align: center;
+    animation: slideUp 0.7s var(--ease) both;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    margin-bottom: 1.1rem;
+}
+.hero-badge-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+    animation: pulseGreen 2s infinite;
+}
+
+.hero-title {
+    font-size: clamp(2rem, 6vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    background: linear-gradient(90deg, #818cf8, #c4b5fd, #a78bfa, #818cf8);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradientShift 8s linear infinite;
+    filter: drop-shadow(0 6px 30px rgba(139, 92, 246, 0.35));
+}
+
+.hero-subtitle {
+    margin: 1rem auto 0;
+    max-width: 640px;
+    color: var(--text-muted);
+    font-size: clamp(0.92rem, 2vw, 1.05rem);
+    line-height: 1.65;
+}
+
+
+/* ---------------------------------------------------------------------
+   6. Stage layout (canvas + side panel)
+   --------------------------------------------------------------------- */
+.stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(290px, 1fr);
+    gap: clamp(1.25rem, 3vw, 2rem);
+    align-items: start;
+    animation: slideUp 0.7s var(--ease) 0.1s both;
+}
+
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+
+/* ---------------------------------------------------------------------
+   7. Hidden source video
+   --------------------------------------------------------------------- */
+#video {
+    display: none !important;
+    width: 0; height: 0;
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+/* ---------------------------------------------------------------------
+   8. Canvas card — animated gradient border (scanning shimmer)
+   --------------------------------------------------------------------- */
+.canvas-card {
+    position: relative;
+    padding: 2px;
+    border-radius: calc(var(--radius) + 2px);
+    background: linear-gradient(125deg,
+        #1e293b 0%,
+        #334155 25%,
+        var(--accent) 45%,
+        var(--accent-2) 55%,
+        #334155 75%,
+        #1e293b 100%);
+    background-size: 300% 300%;
+    box-shadow: var(--shadow), var(--shadow-glow);
+    animation: borderShimmer 7s ease infinite;
+}
+
+.canvas-frame {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #05070d;
+    aspect-ratio: 4 / 3;
+    isolation: isolate;
+}
+
+/* The live canvas — scales to fill the frame, preserves 4:3 */
+#canvas {
+    position: relative;
+    z-index: 3;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: transparent;
+}
+
+/* Faint inner vignette to make HUD pop */
+.canvas-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    box-shadow: inset 0 0 90px 10px rgba(2, 6, 23, 0.65);
+    border-radius: var(--radius);
+}
+
+
+/* ---------------------------------------------------------------------
+   9. Camera loading placeholder (behind the transparent canvas)
+   --------------------------------------------------------------------- */
+.cam-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    background:
+        radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.12), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(148,163,184,0.04) 0 1px, transparent 1px 28px),
+        repeating-linear-gradient(90deg, rgba(148,163,184,0.04) 0 1px, transparent 1px 28px),
+        #070b14;
+    color: var(--text-muted);
+}
+
+.cam-spinner {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    border: 3px solid rgba(148, 163, 184, 0.18);
+    border-top-color: var(--accent-2);
+    border-right-color: var(--accent);
+    animation: spin 0.9s linear infinite;
+    margin-bottom: 0.25rem;
+}
+
+.cam-loading-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+}
+
+.cam-loading-hint {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+}
+
+
+/* ---------------------------------------------------------------------
+   10. HUD: LIVE badge + resolution tag
+   --------------------------------------------------------------------- */
+.live-badge {
+    position: absolute;
+    top: 14px; left: 14px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.65);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: #fecaca;
+}
+
+.live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--live);
+    box-shadow: 0 0 0 0 var(--live-glow);
+    animation: pulseRed 1.6s infinite;
+}
+
+.res-badge {
+    position: absolute;
+    top: 14px; right: 14px;
+    z-index: 5;
+    padding: 0.32rem 0.62rem;
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.6);
+    border: 1px solid var(--border-soft);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+}
+
+
+/* ---------------------------------------------------------------------
+   11. Viewfinder corner brackets
+   --------------------------------------------------------------------- */
+.corner {
+    position: absolute;
+    z-index: 5;
+    width: 22px; height: 22px;
+    border-color: var(--accent-3);
+    border-style: solid;
+    border-width: 0;
+    opacity: 0.85;
+    pointer-events: none;
+}
+.corner-tl { top: 12px;    left: 12px;    border-top-width: 2px; border-left-width: 2px;  border-top-left-radius: 6px; }
+.corner-tr { top: 12px;    right: 12px;   border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 6px; }
+.corner-bl { bottom: 12px; left: 12px;    border-bottom-width: 2px; border-left-width: 2px;  border-bottom-left-radius: 6px; }
+.corner-br { bottom: 12px; right: 12px;   border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 6px; }
+
+
+/* ---------------------------------------------------------------------
+   12. Generic card surface
+   --------------------------------------------------------------------- */
+.result-card,
+.legend-card,
+.info-card {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px -18px rgba(2, 6, 23, 0.8);
+}
+
+
+/* ---------------------------------------------------------------------
+   13. Result readout card
+   --------------------------------------------------------------------- */
+.result-card {
+    padding: clamp(1.1rem, 2.5vw, 1.5rem);
+    background:
+        linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(139, 92, 246, 0.05) 60%, transparent),
+        var(--card);
+    overflow: hidden;
+    animation: breathe 3.6s ease-in-out infinite;
+}
+
+.result-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+}
+.result-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.result-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--ok);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+.result-status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+    animation: pulseGreen 2s infinite;
+}
+
+/* The emotion readout — JS sets innerText, so we style the whole line.
+   Monospace gives it a "machine readout" feel. */
+#result {
+    font-family: var(--mono);
+    font-size: clamp(1.15rem, 4.5vw, 1.7rem);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: #e0e7ff;
+    word-break: break-word;
+    text-shadow: 0 0 24px rgba(139, 92, 246, 0.45);
+    padding: 0.35rem 0 0.5rem;
+    min-height: 1.6em;
+}
+
+.result-foot {
+    font-size: 0.74rem;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+    border-top: 1px dashed var(--border-soft);
+    padding-top: 0.75rem;
+    margin-top: 0.35rem;
+}
+
+
+/* ---------------------------------------------------------------------
+   14. Emotion legend + chips
+   --------------------------------------------------------------------- */
+.legend-card { padding: 1.1rem 1.15rem 1.2rem; }
+
+.legend-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+}
+.legend-title-text {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.legend-count {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+.emotion-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    gap: 0.55rem;
+}
+
+.chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.7rem 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-soft);
+    background: rgba(15, 23, 42, 0.55);
+    cursor: default;
+    transition: transform 0.25s var(--ease),
+                border-color 0.25s var(--ease),
+                background 0.25s var(--ease),
+                box-shadow 0.25s var(--ease);
+    animation: chipIn 0.5s var(--ease) both;
+}
+/* Staggered entrance */
+.chip:nth-child(1) { animation-delay: 0.20s; }
+.chip:nth-child(2) { animation-delay: 0.26s; }
+.chip:nth-child(3) { animation-delay: 0.32s; }
+.chip:nth-child(4) { animation-delay: 0.38s; }
+.chip:nth-child(5) { animation-delay: 0.44s; }
+.chip:nth-child(6) { animation-delay: 0.50s; }
+.chip:nth-child(7) { animation-delay: 0.56s; }
+
+.chip:hover {
+    transform: translateY(-4px);
+    border-color: rgba(139, 92, 246, 0.6);
+    background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.08));
+    box-shadow: 0 12px 24px -12px rgba(99, 102, 241, 0.6);
+}
+.chip:hover .chip-emoji { transform: scale(1.18) rotate(-4deg); }
+
+.chip-emoji {
+    font-size: 1.5rem;
+    line-height: 1;
+    transition: transform 0.3s var(--ease);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+}
+.chip-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+.chip:hover .chip-name { color: var(--text); }
+
+
+/* ---------------------------------------------------------------------
+   15. Info card
+   --------------------------------------------------------------------- */
+.info-card { padding: 0.85rem 1.15rem; }
+
+.info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed var(--border-soft);
+    font-size: 0.82rem;
+}
+.info-row:last-child { border-bottom: none; }
+
+.info-key {
+    color: var(--text-dim);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+}
+.info-val {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    text-align: right;
+}
+
+
+/* ---------------------------------------------------------------------
+   16. Footer
+   --------------------------------------------------------------------- */
+.footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-soft);
+    animation: slideUp 0.7s var(--ease) 0.25s both;
+}
+.footer strong { color: var(--text); font-weight: 600; }
+.footer-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 10px var(--accent-2);
+}
+
+
+/* ---------------------------------------------------------------------
+   17. Keyframe animations
+   --------------------------------------------------------------------- */
+
+/* Gradient text shift (hero title) */
+@keyframes gradientShift {
+    to { background-position: 200% center; }
+}
+
+/* Animated gradient border (canvas card shimmer) */
+@keyframes borderShimmer {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Pulsing LIVE dot */
+@keyframes pulseRed {
+    0%   { box-shadow: 0 0 0 0 var(--live-glow); }
+    70%  { box-shadow: 0 0 0 11px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Pulsing green dot (status badges) */
+@keyframes pulseGreen {
+    0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+    70%  { box-shadow: 0 0 0 9px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Spinner */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Floating background blobs */
+@keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(40px, -30px) scale(1.05); }
+    66%      { transform: translate(-30px, 25px) scale(0.97); }
+}
+
+/* Slide-up entrance */
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Chip entrance */
+@keyframes chipIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Result card breathing glow */
+@keyframes breathe {
+    0%, 100% { box-shadow: 0 10px 30px -18px rgba(2,6,23,0.8),
+                           0 0 26px -10px rgba(99, 102, 241, 0.35); }
+    50%      { box-shadow: 0 10px 30px -18px rgba(2,6,23,0.8),
+                           0 0 46px -6px rgba(139, 92, 246, 0.6); }
+}
+
+
+/* ---------------------------------------------------------------------
+   18. Reduced motion — accessibility
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+    .blob { display: none; }
+}
+
+
+/* ---------------------------------------------------------------------
+   19. Responsive
+   --------------------------------------------------------------------- */
+@media (max-width: 920px) {
+    .stage {
+        grid-template-columns: 1fr;
+    }
+    .side-panel {
+        order: 2;
+    }
+}
+
+@media (max-width: 560px) {
+    .container { width: min(100% - 1.75rem, 1180px); }
+
+    .live-badge, .res-badge { font-size: 0.66rem; padding: 0.3rem 0.55rem; }
+    .corner { width: 16px; height: 16px; }
+
+    .emotion-chips {
+        grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+        gap: 0.45rem;
+    }
+    .chip { padding: 0.6rem 0.3rem 0.5rem; }
+    .chip-emoji { font-size: 1.3rem; }
+
+    .info-val { font-size: 0.72rem; }
+
+    .footer { font-size: 0.76rem; }
 }
