@@ -10,16 +10,9 @@ let lastBox = null;
 let lastEmotion = "--";
 let lastConfidence = 0;
 
-// --- FIX: guard against request pile-up. ---
-// The original code fired a fetch every 2500ms no matter what. When the
-// server was slow (30s/request on Render free tier), 12 concurrent requests
-// stacked up, each spawning MTCNN + TF inference -> instant OOM -> 502.
-// We now wait for the previous request to finish before sending the next,
-// and poll on a recursive setTimeout instead of setInterval.
 let busy = false;
-const POLL_INTERVAL = 1200; // ms between completed requests
+const POLL_INTERVAL = 1200; 
 
-// --- Camera ---
 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
     .then(stream => {
         video.srcObject = stream;
@@ -47,10 +40,9 @@ function drawVideo() {
 }
 requestAnimationFrame(drawVideo);
 
-// --- Prediction loop: send a frame, wait for response, then schedule next ---
 function sendFrame() {
-    if (busy) return;                 // never overlap requests
-    if (video.readyState < 2) {       // not enough data yet
+    if (busy) return;                 
+    if (video.readyState < 2) {       
         scheduleNext();
         return;
     }
@@ -95,7 +87,6 @@ function scheduleNext() {
     setTimeout(sendFrame, POLL_INTERVAL);
 }
 
-// Kick off the loop once the video is actually playing.
+
 video.addEventListener("playing", scheduleNext, { once: true });
-// Fallback in case the event already fired.
 setTimeout(scheduleNext, 2000);
